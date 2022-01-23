@@ -1,0 +1,135 @@
+version: '3'
+services:
+  nginx:
+    build:
+      context: ./dockerfiles
+      dockerfile: nginx/Dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: example_nginx
+    ports:
+      - 80:80
+    volumes:
+      - ./api:/var/www/html/examaple.com/api:delegated
+    depends_on:
+      - php
+      - redis
+      - mysql
+    networks:
+      - example
+
+  mysql:
+    image: mariadb:10.6
+    container_name: mysql
+    restart: unless-stopped
+    tty: true
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: example
+      MYSQL_USER: example
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - example
+
+  php:
+    build:
+      context: ./dockerfiles
+      dockerfile: php/Dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: example_api
+    volumes:
+      - ./api:/var/www/html/example.com/api:delegated
+    networks:
+      - example
+
+  web:
+    build:
+      context: ./dockerfiles
+      dockerfile: web/Dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: example_web
+    volumes:
+      - ./web:/var/www/html/example.com/web:delegated
+    networks:
+      - example
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    networks:
+      - example
+
+  composer:
+    build:
+      context: ./dockerfiles
+      dockerfile: composer/Dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: composer
+    volumes:
+      - ./api:/var/www/html/example.com/api
+    working_dir: /var/www/html/example.com/api
+    depends_on:
+      - php
+    user: example
+    entrypoint: ['composer', '--ignore-platform-reqs']
+    networks:
+      - example
+
+  npm:
+    image: node:13.7
+    container_name: npm
+    volumes:
+      - ./api:/var/www/html/example.com/api
+      - ./web:/var/www/html/example.com/web
+    ports:
+      - 3000:3000
+      - 3001:3001
+    working_dir: /var/www/html/example.com/web
+    entrypoint: ['npm']
+    networks:
+      - example
+
+  artisan:
+    build:
+      context: ./dockerfiles
+      dockerfile: php/dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: artisan
+    volumes:
+      - ./src:/var/www/html/example.com/api:delegated
+    depends_on:
+      - mysql
+    working_dir: /var/www/html/example.com/api
+    entrypoint: ['php', '/var/www/html/example.com/api/artisan']
+    networks:
+      - example
+
+  git:
+    image: alpine/git
+    container_name: example_git
+    volumes:
+    - ./api:/var/www/html/example.com/api
+    - ./web:/var/www/html/example.com/web
+    working_dir: /var/www/html/example.com/
+    networks:
+      - example
+
+networks:
+  - example
+
