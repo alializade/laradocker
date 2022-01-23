@@ -9,9 +9,9 @@ fi
 
 echo "Enter your project name:"
 read -r NAME
-mkdir NAME && cs NAME
+mkdir ${NAME} && cd ${NAME} || exit
 
-docker run -it --rm -v ${pwd}:/www/html/${NAME}.com/ alpine/git clone git@github.com:alializade/laradocker.git
+docker run -it --rm -v $HOME/.ssh:/root/.ssh -v $(pwd):/git alpine/git clone git@github.com:alializade/laradocker.git .
 
 #docker run --rm \
 #    -v "$(pwd)":/opt \
@@ -21,8 +21,6 @@ docker run -it --rm -v ${pwd}:/www/html/${NAME}.com/ alpine/git clone git@github
 
 # sed for composer
 # sed for .env file
-
-cd "$NAME" || exit
 
 echo ""
 
