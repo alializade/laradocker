@@ -3,21 +3,20 @@ services:
   nginx:
     build:
       context: ./dockerfiles
-      dockerfile: nginx/Dockerfile
-      args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
-    container_name: example_nginx
+      dockerfile: ./nginx/Dockerfile
+    container_name: nginx
     ports:
       - 80:80
+      - 8080:8080
     volumes:
-      - ./api:/var/www/html/examaple.com/api:delegated
+      - ./api:/home/api/public_html
+      - ./web:/home/node/public_html
     depends_on:
       - php
       - redis
       - mysql
     networks:
-      - example
+      - laranet
 
   mysql:
     image: mariadb:10.6
@@ -27,40 +26,33 @@ services:
     ports:
       - 3306:3306
     environment:
-      MYSQL_DATABASE: example
-      MYSQL_USER: example
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
       MYSQL_PASSWORD: secret
       MYSQL_ROOT_PASSWORD: secret
       SERVICE_TAGS: dev
       SERVICE_NAME: mysql
     networks:
-      - example
+      - laranet
 
   php:
     build:
-      context: ./dockerfiles
-      dockerfile: php/Dockerfile
-      args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
-    container_name: example_api
+      context: ./api
+      dockerfile: ../dockerfiles/php/Dockerfile
+    container_name: api
     volumes:
-      - ./api:/var/www/html/example.com/api:delegated
+      - ./api:/home/api/public_html
     networks:
-      - example
+      - laranet
 
   web:
     build:
-      context: ./dockerfiles
-      dockerfile: web/Dockerfile
-      args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
-    container_name: example_web
+      context: ./web
+      dockerfile: ../dockerfiles/web/Dockerfile
     volumes:
-      - ./web:/var/www/html/example.com/web:delegated
+      - ./web:/home/node/public_html
     networks:
-      - example
+      - laranet
 
   redis:
     image: redis:alpine
@@ -69,7 +61,7 @@ services:
     ports:
       - 6379:6379
     networks:
-      - example
+      - laranet
 
   composer:
     build:
@@ -80,56 +72,53 @@ services:
         - GID=${GID:-1000}
     container_name: composer
     volumes:
-      - ./api:/var/www/html/example.com/api
-    working_dir: /var/www/html/example.com/api
+      - ./api:/home/api/public_html
+    working_dir: /home/api/public_html
     depends_on:
       - php
-    user: example
+    user: laranet
     entrypoint: ['composer', '--ignore-platform-reqs']
     networks:
-      - example
+      - laranet
 
   npm:
-    image: node:13.7
+    image: node:17-alpine
     container_name: npm
     volumes:
-      - ./api:/var/www/html/example.com/api
-      - ./web:/var/www/html/example.com/web
+#      - ./api:/home/api/public_html
+      - ./web:/home/node/public_html
     ports:
       - 3000:3000
       - 3001:3001
-    working_dir: /var/www/html/example.com/web
+    working_dir: /home/node/public_html
     entrypoint: ['npm']
     networks:
-      - example
+      - laranet
 
   artisan:
     build:
       context: ./dockerfiles
-      dockerfile: php/dockerfile
-      args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
+      dockerfile: php/Dockerfile
     container_name: artisan
     volumes:
-      - ./src:/var/www/html/example.com/api:delegated
+      - ./api:/home/api/public_html
     depends_on:
       - mysql
-    working_dir: /var/www/html/example.com/api
-    entrypoint: ['php', '/var/www/html/example.com/api/artisan']
+    working_dir: /home/api/public_html
+    entrypoint: ['php', '/home/api/public_html/artisan']
     networks:
-      - example
+      - laranet
 
   git:
     image: alpine/git
-    container_name: example_git
+    container_name: git
     volumes:
-    - ./api:/var/www/html/example.com/api
-    - ./web:/var/www/html/example.com/web
-    working_dir: /var/www/html/example.com/
+    - $HOME/.ssh:/root/.ssh
+    - ./:/git
+    working_dir: /git
     networks:
-      - example
+      - laranet
 
 networks:
-  - example
-
+  laranet:
+    driver: bridge
