@@ -4,7 +4,6 @@ services:
     build:
       context: ./dockerfiles
       dockerfile: ./nginx/Dockerfile
-    container_name: nginx
     ports:
       - 80:80
       - 8080:8080
@@ -13,46 +12,46 @@ services:
       - ./web:/home/node/public_html
     depends_on:
       - php
-      - redis
+      - web
       - mysql
     networks:
-      - laranet
+      - private_net
 
   mysql:
     image: mariadb:10.6
-    container_name: mysql
     restart: unless-stopped
     tty: true
     ports:
       - 3306:3306
+    volumes:
+      - ./mysql:/var/lib/mysql
     environment:
       MYSQL_DATABASE: laravel
-      MYSQL_USER: laravel
+      MYSQL_USER: root
       MYSQL_PASSWORD: secret
       MYSQL_ROOT_PASSWORD: secret
       SERVICE_TAGS: dev
       SERVICE_NAME: mysql
     networks:
-      - laranet
+      - private_net
 
   php:
     build:
-      context: ./api
-      dockerfile: ../dockerfiles/php/Dockerfile
-    container_name: api
+      context: ./dockerfiles
+      dockerfile: ./php/Dockerfile
     volumes:
       - ./api:/home/api/public_html
     networks:
-      - laranet
+      - private_net
 
   web:
     build:
-      context: ./web
-      dockerfile: ../dockerfiles/web/Dockerfile
+      context: ./dockerfiles
+      dockerfile: ./web/Dockerfile
     volumes:
       - ./web:/home/node/public_html
     networks:
-      - laranet
+      - private_net
 
   redis:
     image: redis:alpine
@@ -61,64 +60,56 @@ services:
     ports:
       - 6379:6379
     networks:
-      - laranet
+      - private_net
 
   composer:
     build:
       context: ./dockerfiles
       dockerfile: composer/Dockerfile
-      args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
     container_name: composer
     volumes:
-      - ./api:/home/api/public_html
-    working_dir: /home/api/public_html
+      - ./api:/app
+    working_dir: /app
     depends_on:
       - php
-    user: laranet
+    user: composer
     entrypoint: ['composer', '--ignore-platform-reqs']
     networks:
-      - laranet
+      - private_net
 
   npm:
-    image: node:17-alpine
-    container_name: npm
+    image: BASE_NAME_web
     volumes:
-#      - ./api:/home/api/public_html
-      - ./web:/home/node/public_html
+      - ./api:/app/api
+      - ./web:/app/web
     ports:
       - 3000:3000
       - 3001:3001
-    working_dir: /home/node/public_html
+    working_dir: /app/web
     entrypoint: ['npm']
     networks:
-      - laranet
+      - private_net
 
   artisan:
-    build:
-      context: ./dockerfiles
-      dockerfile: php/Dockerfile
-    container_name: artisan
+    image: BASE_NAME_php
     volumes:
-      - ./api:/home/api/public_html
+      - ./api:/app
     depends_on:
       - mysql
-    working_dir: /home/api/public_html
-    entrypoint: ['php', '/home/api/public_html/artisan']
+    working_dir: /app
+    entrypoint: ['php', '/app/artisan']
     networks:
-      - laranet
+      - private_net
 
   git:
     image: alpine/git
-    container_name: git
     volumes:
     - $HOME/.ssh:/root/.ssh
     - ./:/git
     working_dir: /git
     networks:
-      - laranet
+      - private_net
 
 networks:
-  laranet:
+  private_net:
     driver: bridge
